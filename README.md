@@ -1,0 +1,2 @@
+# Java_Programming_Collective_Intelligence
+Java implementation for Programming Collective Intelligence
