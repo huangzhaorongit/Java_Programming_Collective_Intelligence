@@ -124,6 +124,7 @@ public class Recommendations {
         }
         Collections.sort(result, (t1, t2) -> -Float.compare(t1.first, t2.first));
 
+        if (n > result.size()) return result;
         return result.subList(0, n);
     }
 
@@ -170,6 +171,46 @@ public class Recommendations {
         return result;
     }
 
+    public static Map<String, List<Pair<Float, String>>> calculateSimilarItems(Map<String, Map<String, Float>> prefs, int n) {
+        Map<String, List<Pair<Float, String>>> result = new HashMap<>();
+        Map<String, Map<String, Float>> itemPrefs = transformPrefs(prefs);
+
+        int count = 0;
+        for(Map.Entry<String, Map<String, Float>> entry: itemPrefs.entrySet()) {
+            count++;
+            if (count % 100 == 0) System.out.println(String.format(Locale.US, "%d / %d", count, itemPrefs.size()));
+            result.put(entry.getKey(), topMatch(itemPrefs, entry.getKey(), new EuclideanStrategy(), n));
+        }
+        return result;
+    }
+
+    public static List<Pair<Float, String>> getRecommendedItems(Map<String, Map<String, Float>> prefs, Map<String, List<Pair<Float, String>>> itemMatchs, String user) {
+        Map<String, Float> userRatings = prefs.get(user);
+
+        Map<String, Float> scores = new HashMap<>();
+        Map<String, Float> simSums = new HashMap<>();
+
+        for (Map.Entry<String, Float> itemEntry: userRatings.entrySet()) {
+            for (Pair<Float, String> otherItemEntry: itemMatchs.get(itemEntry.getKey())) {
+                if (userRatings.keySet().contains(otherItemEntry.second)) {
+                    continue;
+                }
+
+                scores.put(otherItemEntry.second, scores.getOrDefault(otherItemEntry.second, 0f) + userRatings.get(itemEntry.getKey())*otherItemEntry.first);
+
+                simSums.put(otherItemEntry.second, simSums.getOrDefault(otherItemEntry.second, 0f) + otherItemEntry.first);
+            }
+        }
+
+        List<Pair<Float, String>> result = new ArrayList<>();
+        for (Map.Entry<String, Float> entry: scores.entrySet()) {
+            result.add(Pair.create(entry.getValue()/simSums.get(entry.getKey()), entry.getKey()));
+        }
+
+        Collections.sort(result, (t1, t2) -> -Float.compare(t1.first, t2.first));
+        return result;
+    }
+
     public static void main(String[] args) {
         System.out.println("eulidean " + similarityByEuclideanDistance(sPrefs, "Lisa Rose", "Gene Seymour"));
 
@@ -182,5 +223,14 @@ public class Recommendations {
         System.out.println("product topmatch " + Arrays.toString(topMatch(transformPrefs(sPrefs), "Superman Returns", null, 3).toArray()));
 
         System.out.println("product recommendations " + Arrays.toString(getRecommendations(transformPrefs(sPrefs), "Just My Luck", null).toArray()));
+
+        System.out.println("similar products dataset======");
+
+        Map<String, List<Pair<Float, String>>> productSimilarDataSet = calculateSimilarItems(sPrefs, 10);
+        for (Map.Entry<String, List<Pair<Float, String>>> item: productSimilarDataSet.entrySet()) {
+            System.out.println(String.format(Locale.US, "key: %s value: %s", item.getKey(), Arrays.toString(item.getValue().toArray())));
+        }
+
+        System.out.println("product recommendations " + Arrays.toString(getRecommendedItems(sPrefs, productSimilarDataSet, "Toby").toArray()));
     }
 }
