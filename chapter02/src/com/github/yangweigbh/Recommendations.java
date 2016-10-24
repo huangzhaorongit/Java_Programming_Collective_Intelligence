@@ -3,6 +3,7 @@ package com.github.yangweigbh;
 import com.github.yangweigbh.utils.Pair;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by yangwei on 2016/10/23.
@@ -93,15 +94,14 @@ public class Recommendations {
         float sum1Pow2 = 0;
         float sum2Pow2 = 0;
         float sumOfProduct = 0;
-        for (String item: intersection) {
-            sum1 += prefOfUser1.get(item);
-            sum2 += prefOfUser2.get(item);
 
-            sum1Pow2 += Math.pow(prefOfUser1.get(item), 2);
-            sum2Pow2 += Math.pow(prefOfUser2.get(item), 2);
+        sum1 = (float) intersection.stream().mapToDouble(item -> prefOfUser1.get(item)).sum();
+        sum2 = (float) intersection.stream().mapToDouble(item -> prefOfUser2.get(item)).sum();
 
-            sumOfProduct += prefOfUser1.get(item)*prefOfUser2.get(item);
-        }
+        sum1Pow2 = (float) intersection.stream().mapToDouble(item -> Math.pow(prefOfUser1.get(item), 2)).sum();
+        sum2Pow2 = (float) intersection.stream().mapToDouble(item -> Math.pow(prefOfUser2.get(item), 2)).sum();
+
+        sumOfProduct = (float) intersection.stream().mapToDouble(item -> prefOfUser1.get(item)*prefOfUser2.get(item)).sum();
 
         float num = sumOfProduct - (sum1*sum2/n);
         float den = (float) Math.sqrt((sum1Pow2-Math.pow(sum1, 2)/n)*(sum2Pow2-Math.pow(sum2, 2)/n));
@@ -116,12 +116,13 @@ public class Recommendations {
         if (strategy == null) {
             strategy = new PearsonStrategy();
         }
-        List<Pair<Float, String>> result = new ArrayList<>();
-        for (String userItem: prefs.keySet()) {
-            if (!user.equals(userItem)) {
-                result.add(strategy.apply(prefs, user, userItem));
-            }
-        }
+
+        final Strategy finalStrategy = strategy;
+        List<Pair<Float, String>> result = prefs.keySet().stream()
+                                                        .filter(item -> !user.equals(item))
+                                                        .map(item-> finalStrategy.apply(prefs, user, item))
+                                                        .collect(Collectors.toList());
+
         Collections.sort(result, (t1, t2) -> -Float.compare(t1.first, t2.first));
 
         if (n > result.size()) return result;
@@ -135,6 +136,7 @@ public class Recommendations {
 
         Map<String, Float> totals = new HashMap<>();
         Map<String, Float> simSums = new HashMap<>();
+
         for (String otherUser: prefs.keySet()) {
             if (!user.equals(otherUser)) {
                 float similarity = strategy.apply(prefs, user, otherUser).first;
